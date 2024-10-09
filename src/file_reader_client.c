@@ -99,7 +99,7 @@ void parse_arguments(int argc, char **argv, struct context *ctx)
     ctx->arguments->modification_option = invalid;    // Used to check if the value is set properly later
 
     opterr = 0;
-    printf("here");
+
     while((opt = getopt(argc, argv, "hi:f:")) != -1)
     {
         switch(opt)
@@ -121,7 +121,6 @@ void parse_arguments(int argc, char **argv, struct context *ctx)
                     cleanup_context(ctx);
                     usage("Input string evaluation failed");
                 }
-
                 // ctx->arguments->output = (char *)malloc(sizeof(char) * ctx->arguments->input_length + 1);
                 // free(input_filename);
                 break;
@@ -174,7 +173,6 @@ void parse_arguments(int argc, char **argv, struct context *ctx)
         cleanup_context(ctx);
         usage("No modification option added");
     }
-    // printf("out");
 }
 
 size_t write_to_server(struct context *ctx)
@@ -202,9 +200,10 @@ size_t write_to_server(struct context *ctx)
     option_written = write(fd, &ctx->arguments->option_char, sizeof(char));
     if(option_written == -1)
     {
+        // cpp-check surpress doubleFree
         close(fd);
         cleanup_context(ctx);
-        usage("Could not write to /tmp/write_fifo");
+        usage("Could not write to file");
     }
 
     nwrote = 0;
@@ -220,7 +219,7 @@ size_t write_to_server(struct context *ctx)
         {
             cleanup_file(fd);
             cleanup_context(ctx);
-            usage("Could not write to /tmp/write_fifo");
+            usage("Could not write to file");
         }
 
         nwrote += (size_t)temp_wrote;
@@ -245,22 +244,17 @@ ssize_t await_server_response(struct context *ctx)
     ssize_t remaining  = (ssize_t)ctx->arguments->input_length;
     int     fd         = open(ctx->fifo_out, O_RDONLY | O_CLOEXEC);
 
-    printf("Awaiting server response...\n");
+    // printf("Awaiting server response...\n");
 
     if(fd == -1)
     {
         // free(output);
         cleanup_context(ctx);
-        usage("Could not open /tmp/response_fifo");
+        usage("Could not open file");
     }
 
     // temp_out = (char*) malloc(sizeof(char) * output_length);
-    ctx->arguments->output = (char *)malloc(sizeof(char) * ctx->arguments->input_length + sizeof(char));
-    if(ctx->arguments->output == NULL)
-    {
-        cleanup_context(ctx);
-        usage("Could not allocate memory");
-    }
+
     do
     {
         bytes_read += read(fd, &ctx->arguments->output[bytes_read], ctx->arguments->input_length);
@@ -269,7 +263,7 @@ ssize_t await_server_response(struct context *ctx)
             // free(output);
             cleanup_file(fd);
             cleanup_context(ctx);
-            usage("Could not read from /tmp/response_fifo");
+            usage("Could not read from file");
         }
         remaining -= bytes_read;
     } while(remaining != 0);
@@ -327,14 +321,21 @@ void modify_text_input(struct context *ctx)
     get_modification_char(ctx);
     write_to_server(ctx);
 
-    printf("we good\n");
+    ctx->arguments->output = (char *)malloc(sizeof(char) * ctx->arguments->input_length + 1);
+    if(ctx->arguments->output == NULL)
+    {
+        cleanup_context(ctx);
+        usage("Could not allocate memory");
+    }
+
+    // printf("we good\n");
 
     await_server_response(ctx);
 
     // write(1, ctx->arguments->output, ctx->arguments->input_length);
 
-    // free(ctx->arguments->output);
-    // ctx->arguments->output = NULL;
+    free(ctx->arguments->output);
+    ctx->arguments->output = NULL;
 }
 
 void test_fifo(const char *filename, const char *msg, size_t msg_size)
@@ -351,7 +352,7 @@ void test_fifo(const char *filename, const char *msg, size_t msg_size)
     if(bytes_written == -1)
     {
         cleanup_file(fd);
-        usage("Could not write to /tmp/write_fifo");
+        usage("Could not write to fifo");
     }
 
     // fprintf(stdout, "bytes_written: %ld\n", bytes_written);
@@ -364,7 +365,7 @@ int main(int argc, char **argv)
     const size_t    out_size = 19;
     struct context *ctx      = (struct context *)malloc(sizeof(struct context));
 
-    printf("starting client...\n");
+    // printf("starting client...\n");
 
     if(ctx == NULL)
     {

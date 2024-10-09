@@ -267,6 +267,7 @@ int main(void)
     const char  *fifo_out         = "/tmp/response_fifo";
     const size_t file_name_length = 18;
 
+    perror("starting");
     if(signal(SIGINT, handle_signal) == SIG_ERR)
     {
         perror("Error setting up signal handler");
@@ -280,6 +281,7 @@ int main(void)
         exit(1);
     }
     close(response_test_fd);
+    perror("starting");
 
     // printf("starting server\n");
     await_fifo_connection(fifo_in, fifo_out, file_name_length);
