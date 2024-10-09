@@ -1,0 +1,2 @@
+server src/text_modify_server.c include/text_modify_server.h src/character_modifications.c include/character_modifications.h pthread
+client src/file_reader_client.c include/file_reader_client.h
